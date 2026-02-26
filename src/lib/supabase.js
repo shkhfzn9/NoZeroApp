@@ -3,8 +3,10 @@ import fetch from 'cross-fetch'
 
 // Use Vercel Rewrite Proxy in Production to bypass ISP Domain Blocking
 const isProd = import.meta.env.MODE === 'production';
+const proxyOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+
 const supabaseUrl = isProd
-    ? '/api/supabase'
+    ? `${proxyOrigin}/api/supabase`
     : import.meta.env.VITE_SUPABASE_URL;
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
