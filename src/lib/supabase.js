@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import fetch from 'cross-fetch'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -8,5 +9,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true
+    },
+    global: {
+        fetch: fetch
     }
 })
