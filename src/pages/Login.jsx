@@ -230,9 +230,42 @@ export default function Login() {
                                 <Link to="/signup" className="text-charcoal dark:text-white font-bold hover:underline">Request access</Link>
                             </p>
                             <div className="text-center mt-4">
-                                <p className="text-[10px] text-slate-400 opacity-50 tracking-widest uppercase">
-                                    Build 3 | ID: {import.meta.env.VITE_SUPABASE_URL ? 'OK' : 'MISSING'}
+                                <p className="text-[10px] text-slate-400 opacity-50 tracking-widest uppercase mb-4">
+                                    Build 4 | ID: {import.meta.env.VITE_SUPABASE_URL ? 'OK' : 'MISSING'}
                                 </p>
+                                <div className="flex justify-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            try {
+                                                const res = await fetch('https://jsonplaceholder.typicode.com/todos/1');
+                                                const data = await res.json();
+                                                alert(`JSONPlaceholder Success! ${JSON.stringify(data)}`);
+                                            } catch (e) {
+                                                alert(`JSONPlaceholder Failed: ${e.message}`);
+                                            }
+                                        }}
+                                        className="text-[10px] font-bold bg-slate-200 dark:bg-zinc-800 px-3 py-2 rounded-lg"
+                                    >
+                                        Ping external
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            try {
+                                                const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/health`, {
+                                                    headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY }
+                                                });
+                                                alert(`Supabase Ping Success! Status: ${res.status}`);
+                                            } catch (e) {
+                                                alert(`Supabase Ping Failed: ${e.message}`);
+                                            }
+                                        }}
+                                        className="text-[10px] font-bold bg-slate-200 dark:bg-zinc-800 px-3 py-2 rounded-lg"
+                                    >
+                                        Ping Supabase
+                                    </button>
+                                </div>
                             </div>
                         </>
                     )}
