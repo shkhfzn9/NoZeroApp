@@ -1,0 +1,11 @@
+﻿
+> nozeroapp@0.0.0 lint
+> eslint .
+
+
+F:\Myprojects\No Zero\NoZero Code\NoZeroApp\src\pages\Signup.jsx
+  18:9   error  'setLoading' is not defined  no-undef
+  30:13  error  'setLoading' is not defined  no-undef
+
+Γ£û 2 problems (2 errors, 0 warnings)
+

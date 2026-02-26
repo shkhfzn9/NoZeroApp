@@ -1,0 +1,21 @@
+﻿
+> nozeroapp@0.0.0 lint
+> eslint .
+
+
+F:\Myprojects\No Zero\NoZero Code\NoZeroApp\src\context\TaskContext.jsx
+    7:17  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  266:17  error  'data' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                            no-unused-vars
+
+F:\Myprojects\No Zero\NoZero Code\NoZeroApp\src\pages\PermanentExit.jsx
+  2:10  error  'useNavigate' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+F:\Myprojects\No Zero\NoZero Code\NoZeroApp\src\pages\PublicAudit.jsx
+  4:18  error  'parseISO' is defined but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+  4:28  error  'isSameDay' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+F:\Myprojects\No Zero\NoZero Code\NoZeroApp\src\pages\Signup.jsx
+  8:12  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Γ£û 6 problems (6 errors, 0 warnings)
+
