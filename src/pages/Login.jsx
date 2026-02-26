@@ -35,7 +35,8 @@ export default function Login() {
             await signIn(email, password);
             navigate(redirectTo);
         } catch (err) {
-            setError(err.message);
+            console.error("Login fetch error:", err);
+            setError(`${err.message} | ${JSON.stringify(err)} | Build 3`);
         } finally {
             setLoading(false);
         }
@@ -228,6 +229,11 @@ export default function Login() {
                                 Don't have an account?{' '}
                                 <Link to="/signup" className="text-charcoal dark:text-white font-bold hover:underline">Request access</Link>
                             </p>
+                            <div className="text-center mt-4">
+                                <p className="text-[10px] text-slate-400 opacity-50 tracking-widest uppercase">
+                                    Build 3 | ID: {import.meta.env.VITE_SUPABASE_URL ? 'OK' : 'MISSING'}
+                                </p>
+                            </div>
                         </>
                     )}
                 </div>
