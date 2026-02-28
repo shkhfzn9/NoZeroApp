@@ -358,16 +358,19 @@ export function TaskProvider({ children }) {
 
                             let updates = { missed_tasks_count: newCount };
 
-                            // Check isolated points today to avoid penalizing if they have > 5 points
-                            const completedTodayPoints = tasks
-                                .filter(t => t.status === 'completed' && String(t.actual_end_time).startsWith(todayStr))
-                                .reduce((sum, t) => sum + (t.points || 0), 0);
+                            // Only proceed with penalty logic if we haven't already penalized today
+                            if (currentProfile.last_penalty_date !== todayStr) {
+                                // Check isolated points today to avoid penalizing if they have > 5 points
+                                const completedTodayPoints = tasks
+                                    .filter(t => t.status === 'completed' && String(t.actual_end_time).startsWith(todayStr))
+                                    .reduce((sum, t) => sum + (t.points || 0), 0);
 
-                            // Penalize -10 points if not penalized today AND earned points <= 5
-                            if (currentProfile.last_penalty_date !== todayStr && completedTodayPoints <= 5) {
-                                updates.consistency_score = (currentProfile.consistency_score || 0) - 10;
-                                updates.last_penalty_date = todayStr;
-                                updates.current_streak = 0; // Break streak
+                                // Penalize exactly ONCE -10 points if earned points <= 5
+                                if (completedTodayPoints <= 5) {
+                                    updates.consistency_score = (currentProfile.consistency_score || 0) - 10;
+                                    updates.last_penalty_date = todayStr;
+                                    updates.current_streak = 0; // Break streak
+                                }
                             }
 
                             const { error: profileError } = await supabase
@@ -394,7 +397,8 @@ export function TaskProvider({ children }) {
             email,
             password,
             options: {
-                data: { username }
+                data: { username },
+                emailRedirectTo: 'https://no-zero-app.vercel.app/login'
             }
         });
         if (error) throw error;
@@ -663,6 +667,7 @@ export function TaskProvider({ children }) {
             // Fresh read to prevent race conditions
             const { data: currentProfile } = await supabase.from('profiles').select('consistency_score, last_penalty_date').eq('id', profile.id).single();
 
+            // VERY IMPORTANT: Check todayStr, not yesterdayStr. The penalty happens TODAY for missing yesterday.
             if (currentProfile && currentProfile.last_penalty_date !== todayStr) {
                 // Fetch tasks from yesterday to see if they earned > 5 points
                 const { data: yesterdayTasks } = await supabase
