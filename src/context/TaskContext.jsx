@@ -357,22 +357,6 @@ export function TaskProvider({ children }) {
                             const todayStr = new Date().toLocaleDateString('en-CA');
 
                             let updates = { missed_tasks_count: newCount };
-
-                            // Only proceed with penalty logic if we haven't already penalized today
-                            if (currentProfile.last_penalty_date !== todayStr) {
-                                // Check isolated points today to avoid penalizing if they have > 5 points
-                                const completedTodayPoints = tasks
-                                    .filter(t => t.status === 'completed' && String(t.actual_end_time).startsWith(todayStr))
-                                    .reduce((sum, t) => sum + (t.points || 0), 0);
-
-                                // Penalize exactly ONCE -10 points if earned points <= 5
-                                if (completedTodayPoints <= 5) {
-                                    updates.consistency_score = (currentProfile.consistency_score || 0) - 10;
-                                    updates.last_penalty_date = todayStr;
-                                    updates.current_streak = 0; // Break streak
-                                }
-                            }
-
                             const { error: profileError } = await supabase
                                 .from('profiles')
                                 .update(updates)
@@ -508,18 +492,6 @@ export function TaskProvider({ children }) {
                         const todayStr = new Date().toLocaleDateString('en-CA');
 
                         let updates = { missed_tasks_count: newCount };
-
-                        // Check isolated points today to avoid penalizing if they have > 5 points
-                        const completedTodayPoints = tasks
-                            .filter(t => t.status === 'completed' && String(t.actual_end_time).startsWith(todayStr))
-                            .reduce((sum, t) => sum + (t.points || 0), 0);
-
-                        // Penalize -10 points if not penalized today AND earned points <= 5
-                        if (currentProfile.last_penalty_date !== todayStr && completedTodayPoints <= 5) {
-                            updates.consistency_score = (currentProfile.consistency_score || 0) - 10;
-                            updates.last_penalty_date = todayStr;
-                            updates.current_streak = 0; // Break streak
-                        }
 
                         const { error: profileError } = await supabase
                             .from('profiles')
@@ -669,7 +641,7 @@ export function TaskProvider({ children }) {
 
             // VERY IMPORTANT: Check todayStr, not yesterdayStr. The penalty happens TODAY for missing yesterday.
             if (currentProfile && currentProfile.last_penalty_date !== todayStr) {
-                // Fetch tasks from yesterday to see if they earned > 5 points
+                // Fetch tasks from yesterday to see points earned
                 const { data: yesterdayTasks } = await supabase
                     .from('tasks')
                     .select('points, actual_end_time, status')
@@ -679,26 +651,31 @@ export function TaskProvider({ children }) {
 
                 const yesterdayPoints = (yesterdayTasks || []).reduce((sum, t) => sum + (t.points || 0), 0);
 
-                if (yesterdayPoints <= 5) {
-                    console.log(`[TaskContext] Missed yesterday (Points: ${yesterdayPoints}). Applying penalty.`);
-                    const newScore = (currentProfile.consistency_score || 0) - 10; // Allow negative
+                let newScore = currentProfile.consistency_score || 0;
+                let updates = {
+                    last_penalty_date: todayStr
+                };
 
-                    const updates = {
-                        current_streak: 0,
-                        consistency_score: newScore,
-                        last_penalty_date: todayStr
-                    };
-
-                    const { error } = await supabase
-                        .from('profiles')
-                        .update(updates)
-                        .eq('id', profile.id);
-
-                    if (!error) {
-                        setUser(prev => ({ ...prev, ...updates }));
-                    }
+                if (yesterdayPoints < 5) {
+                    console.log(`[TaskContext] Missed safe zone yesterday (Points: ${yesterdayPoints}). Applying -10 penalty.`);
+                    // User requested +points earned, then -10 penalty if < 5
+                    newScore = newScore + yesterdayPoints - 10;
+                    updates.current_streak = 0;
                 } else {
-                    console.log(`[TaskContext] Saved from penalty! Earned ${yesterdayPoints} points yesterday.`);
+                    console.log(`[TaskContext] Safe zone achieved! Earned ${yesterdayPoints} points yesterday.`);
+                    // User requested +points earned if >= 5
+                    newScore = newScore + yesterdayPoints;
+                }
+
+                updates.consistency_score = newScore;
+
+                const { error } = await supabase
+                    .from('profiles')
+                    .update(updates)
+                    .eq('id', profile.id);
+
+                if (!error) {
+                    setUser(prev => ({ ...prev, ...updates }));
                 }
             }
         }
