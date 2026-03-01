@@ -5,7 +5,7 @@ import clsx from 'clsx';
 
 export default function AddTaskModal() {
     const navigate = useNavigate();
-    const { addTask, user, loading } = useTasks();
+    const { addTask, user, loading, tasks } = useTasks();
 
     useEffect(() => {
         if (!loading && !user) {
@@ -158,10 +158,18 @@ export default function AddTaskModal() {
                 points: formData.points
             };
 
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const tasksToday = tasks.filter(t => t.created_at && t.created_at.startsWith(todayStr));
+            const isFirstTaskToday = tasksToday.length === 0;
+
             const result = await addTask(taskPayload);
 
             if (result) {
-                navigate('/');
+                if (isFirstTaskToday) {
+                    navigate('/', { state: { showFirstTaskPopup: true } });
+                } else {
+                    navigate('/');
+                }
             } else {
                 setError("Task creation failed. Please check your connection and try again.");
             }

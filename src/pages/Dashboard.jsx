@@ -1,8 +1,9 @@
 import React from 'react';
 import { useTasks } from '../hooks/useTasks';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import FeatureTour from '../components/FeatureTour';
+import FirstTaskPopup from '../components/FirstTaskPopup';
 
 const TOUR_STEPS = [
     {
@@ -130,6 +131,7 @@ const TaskTimer = ({ startTime, endTime, scheduledEndTime }) => {
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const location = useLocation();
     const {
         user, tasks, startTask, completeTask, loading, isDayOff, dayOffsThisWeek,
         friends, acceptFriendRequest, rejectFriendRequest
@@ -143,6 +145,18 @@ export default function Dashboard() {
     );
     const [showBrutalStartModal, setShowBrutalStartModal] = React.useState(false);
     const [showNotifications, setShowNotifications] = React.useState(false);
+
+    // First Task Popup logic
+    const [showFirstTaskPopup, setShowFirstTaskPopup] = React.useState(
+        location.state?.showFirstTaskPopup || false
+    );
+
+    // Clear the location state so refresh doesn't trigger it again
+    React.useEffect(() => {
+        if (location.state?.showFirstTaskPopup) {
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.state, navigate, location.pathname]);
 
     // Derived state for notifications
     const pendingRequests = friends ? friends.filter(f => f.status === 'pending' && !f.isSender) : [];
@@ -782,6 +796,10 @@ export default function Dashboard() {
             {/* Feature Tour */}
             {showTour && (
                 <FeatureTour steps={TOUR_STEPS} onDone={handleTourDone} />
+            )}
+            {/* First Task Popup */}
+            {showFirstTaskPopup && (
+                <FirstTaskPopup onClose={() => setShowFirstTaskPopup(false)} />
             )}
         </div >
     );
