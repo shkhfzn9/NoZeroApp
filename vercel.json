@@ -2,7 +2,7 @@
     "rewrites": [
         {
             "source": "/api/supabase/(.*)",
-            "destination": "https://grmcwebsgfrclyafrcio.supabase.co/$1"
+            "destination": "/api/supabase/$1"
         },
         {
             "source": "/(.*)",
