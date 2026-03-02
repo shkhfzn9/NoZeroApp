@@ -11,6 +11,19 @@ const supabaseUrl = isProd
 
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// Custom fetch wrapper to pass original host headers through Vercel's proxy
+// Supabase needs this to know where to point the {{ .ConfirmationURL }} instead of localhost
+const customFetch = (url, options = {}) => {
+    if (isProd && typeof window !== 'undefined') {
+        options.headers = {
+            ...options.headers,
+            'x-forwarded-host': window.location.host,
+            'x-forwarded-proto': window.location.protocol.replace(':', '')
+        };
+    }
+    return fetch(url, options);
+};
+
 export const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
         persistSession: true,
@@ -18,6 +31,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         detectSessionInUrl: true
     },
     global: {
-        fetch: fetch
+        fetch: customFetch
     }
 })
