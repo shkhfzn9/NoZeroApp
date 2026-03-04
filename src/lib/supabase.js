@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import fetch from 'cross-fetch'
 
 // Use Vercel Rewrite Proxy in Production to bypass ISP Domain Blocking
 const isProd = import.meta.env.MODE === 'production';
@@ -16,8 +15,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true
-    },
-    global: {
-        fetch: fetch
     }
 })
+
