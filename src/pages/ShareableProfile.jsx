@@ -214,10 +214,8 @@ export default function ShareableProfile() {
 
         setProfile(profileData);
 
-        const [tasksRes, proofsRes] = await Promise.all([
-            supabase.from('tasks').select('status, created_at').eq('user_id', profileData.id).order('created_at', { ascending: false }).limit(500),
-            supabase.from('social_proofs').select('*').eq('user_id', profileData.id).order('created_at', { ascending: true }),
-        ]);
+        const tasksRes = await supabase.from('tasks').select('status, created_at, actual_end_time').eq('user_id', profileData.id).order('created_at', { ascending: false }).limit(500);
+        const proofsRes = await supabase.from('social_proofs').select('*').eq('user_id', profileData.id).order('created_at', { ascending: true });
 
         setTasks(tasksRes.data || []);
         setProofs(proofsRes.data || []);

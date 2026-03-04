@@ -283,13 +283,13 @@ export function TaskProvider({ children }) {
 
             // Run full scoring pipeline (backfill penalties → refresh tier → cycle check)
             supabase.rpc('on_app_open', { p_user_id: userId })
-                .then(() => Promise.all([
-                    fetchProfile(userId),
-                    fetchTasks(userId),
-                    fetchFriends(userId),
-                    fetchAuditLogs(userId),
-                    fetchLeaderboard()
-                ]))
+                .then(async () => {
+                    await fetchProfile(userId);
+                    await fetchTasks(userId);
+                    await fetchFriends(userId);
+                    await fetchAuditLogs(userId);
+                    await fetchLeaderboard();
+                })
                 .then(() => {
                     setLoading(false);
                 }).catch(err => {
