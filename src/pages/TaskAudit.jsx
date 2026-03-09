@@ -241,12 +241,20 @@ export default function TaskAudit() {
                         >
                             Update Task
                         </button>
-                        <button
-                            onClick={handleDelete}
-                            className="flex-1 bg-rose-500/10 text-rose-500 py-3 rounded-xl font-bold text-sm active:scale-95 transition-transform"
-                        >
-                            Delete Task
-                        </button>
+                        {task.status !== 'missed' && (
+                            <button
+                                onClick={handleDelete}
+                                className="flex-1 bg-rose-500/10 text-rose-500 py-3 rounded-xl font-bold text-sm active:scale-95 transition-transform"
+                            >
+                                Delete Task
+                            </button>
+                        )}
+                        {task.status === 'missed' && (
+                            <div className="flex-1 bg-rose-500/5 text-rose-400 py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-1.5 cursor-not-allowed">
+                                <span className="material-symbols-outlined text-sm">lock</span>
+                                Missed — Locked
+                            </div>
+                        )}
                     </div>
                 </div>
 

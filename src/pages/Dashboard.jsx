@@ -31,7 +31,7 @@ const TOUR_STEPS = [
         iconColor: 'text-violet-400',
         tag: 'Step 3 of 5',
         title: 'Switch Your Task View',
-        body: 'Use these tabs to switch between Today\'s tasks, tasks In Review, Missed tasks, and your full History.',
+        body: 'Use these tabs to switch between Today\'s tasks, Completed tasks, Missed tasks, and your full History.',
     },
     {
         target: 'task-card-area',
@@ -137,6 +137,10 @@ export default function Dashboard() {
         friends, acceptFriendRequest, rejectFriendRequest
     } = useTasks();
     const [activeTab, setActiveTab] = React.useState('today');
+    // History filters
+    const [historyDate, setHistoryDate] = React.useState('');
+    const [historyStatus, setHistoryStatus] = React.useState('all');
+    const [expandedHistoryId, setExpandedHistoryId] = React.useState(null);
     // Add real-time clock to trigger re-renders for End button lock logic
     const [currentTime, setCurrentTime] = React.useState(new Date());
     const [confirmTaskId, setConfirmTaskId] = React.useState(null);
@@ -202,22 +206,40 @@ export default function Dashboard() {
         const todayStr = now.toLocaleDateString('en-CA'); // YYYY-MM-DD
 
         const getTaskDate = (task) => {
-            // created_at is UTC, convert to local date string
             return new Date(task.created_at).toLocaleDateString('en-CA');
         };
 
         if (activeTab === 'today') {
             // Show ALL tasks created today (Scheduled, Completed, Missed, etc.)
             return tasks.filter(t => getTaskDate(t) === todayStr);
-        } else if (activeTab === 'review') {
-            return tasks.filter(t => t.status === 'completed');
+        } else if (activeTab === 'completed') {
+            // Only today's completed tasks
+            return tasks.filter(t => t.status === 'completed' && getTaskDate(t) === todayStr);
         } else if (activeTab === 'missed') {
-            return tasks.filter(t => t.status === 'missed');
+            // Only today's missed tasks
+            return tasks.filter(t => t.status === 'missed' && getTaskDate(t) === todayStr);
         } else {
-            // History: Show tasks from previous days
-            return tasks.filter(t => getTaskDate(t) < todayStr);
+            // History: All tasks from previous days + advanced filters
+            let historyTasks = tasks.filter(t => getTaskDate(t) < todayStr);
+
+            // Apply date filter
+            if (historyDate) {
+                historyTasks = historyTasks.filter(t => getTaskDate(t) === historyDate);
+            }
+
+            // Apply status filter
+            if (historyStatus !== 'all') {
+                historyTasks = historyTasks.filter(t => t.status === historyStatus);
+            }
+
+            // Sort newest first
+            return historyTasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         }
-    }, [tasks, activeTab]);
+    }, [tasks, activeTab, historyDate, historyStatus]);
+
+    // Counts scoped to today (reuses todayStr from line 177)
+    const todayCompletedCount = tasks.filter(t => t.status === 'completed' && new Date(t.created_at).toLocaleDateString('en-CA') === todayStr).length;
+    const todayMissedCount = tasks.filter(t => t.status === 'missed' && new Date(t.created_at).toLocaleDateString('en-CA') === todayStr).length;
 
     console.log(`[Dashboard] Render. Loading=${loading}, User=${user?.id}`);
 
@@ -419,6 +441,29 @@ export default function Dashboard() {
                                     <span className="text-5xl font-extrabold text-primary">{user?.consistency_score ?? 0}</span>
                                     <span className="text-xl font-bold text-primary/80">Pts</span>
                                 </div>
+                                {/* Today's Points Indicator */}
+                                {(() => {
+                                    const todayStr = new Date().toLocaleDateString('en-CA');
+                                    const todayPoints = tasks
+                                        ?.filter(t => t.status === 'completed' && t.actual_end_time?.startsWith(todayStr))
+                                        .reduce((sum, t) => sum + (t.points || 0), 0) || 0;
+
+                                    return (
+                                        <div className="mt-2 flex items-center gap-1.5">
+                                            <div className={clsx(
+                                                "text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md",
+                                                todayPoints >= 10 ? "bg-primary text-charcoal" : "bg-white/10 text-white"
+                                            )}>
+                                                +{todayPoints} pts today
+                                            </div>
+                                            {todayPoints < 10 && (
+                                                <span className="text-[10px] text-white/50 font-medium">
+                                                    (Need {10 - todayPoints} more for streak)
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div className="bg-white/10 px-3 py-2 rounded-2xl backdrop-blur-sm flex items-center gap-2">
                                 <span className="material-icons-outlined text-orange-500 text-lg">local_fire_department</span>
@@ -471,13 +516,13 @@ export default function Dashboard() {
                         Today
                     </button>
                     <button
-                        onClick={() => setActiveTab('review')}
+                        onClick={() => setActiveTab('completed')}
                         className={clsx(
                             "px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-colors",
-                            activeTab === 'review' ? "bg-charcoal dark:bg-white text-white dark:text-charcoal" : "bg-white dark:bg-charcoal text-gray-500"
+                            activeTab === 'completed' ? "bg-charcoal dark:bg-white text-white dark:text-charcoal" : "bg-white dark:bg-charcoal text-gray-500"
                         )}
                     >
-                        In Review <span className="ml-1 px-1.5 py-0.5 bg-primary text-charcoal rounded text-[10px]">{tasks.filter(t => t.status === 'completed').length}</span>
+                        Completed <span className="ml-1 px-1.5 py-0.5 bg-primary text-charcoal rounded text-[10px]">{todayCompletedCount}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('missed')}
@@ -486,7 +531,7 @@ export default function Dashboard() {
                             activeTab === 'missed' ? "bg-charcoal dark:bg-white text-white dark:text-charcoal" : "bg-white dark:bg-charcoal text-gray-500"
                         )}
                     >
-                        Missed <span className="ml-1 px-1.5 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[10px]">{tasks.filter(t => t.status === 'missed').length}</span>
+                        Missed <span className="ml-1 px-1.5 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[10px]">{todayMissedCount}</span>
                     </button>
                     <button
                         onClick={() => setActiveTab('history')}
@@ -534,52 +579,73 @@ export default function Dashboard() {
                     </main>
                 ) : (
                     <main data-tour="task-card-area" className="px-6 space-y-6">
-                        {filteredTasks.map((task, index) => {
+                        {/* History Tab Filter Bar */}
+                        {activeTab === 'history' && (
+                            <div className="space-y-3">
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Date</label>
+                                        <input
+                                            type="date"
+                                            value={historyDate}
+                                            onChange={(e) => setHistoryDate(e.target.value)}
+                                            className="w-full bg-white dark:bg-charcoal text-charcoal dark:text-white rounded-xl px-3 py-2.5 text-sm font-medium border border-slate-100 dark:border-slate-800 focus:ring-primary focus:border-primary outline-none"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Status</label>
+                                        <select
+                                            value={historyStatus}
+                                            onChange={(e) => setHistoryStatus(e.target.value)}
+                                            className="w-full bg-white dark:bg-charcoal text-charcoal dark:text-white rounded-xl px-3 py-2.5 text-sm font-medium border border-slate-100 dark:border-slate-800 focus:ring-primary focus:border-primary outline-none appearance-none"
+                                        >
+                                            <option value="all">All</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="missed">Missed</option>
+                                            <option value="in_progress">In Progress</option>
+                                            <option value="scheduled">Scheduled</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                {(historyDate || historyStatus !== 'all') && (
+                                    <button
+                                        onClick={() => { setHistoryDate(''); setHistoryStatus('all'); }}
+                                        className="text-xs font-bold text-primary flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">close</span>
+                                        Clear Filters
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Render Full Cards for today/completed/missed tabs */}
+                        {activeTab !== 'history' && filteredTasks.map((task, index) => {
                             const theme = getCardTheme(index, task.status);
 
-                            // DEBUG: Log every task
-                            // console.log(`[Dashboard Loop] ${task.title} (${task.status})`);
-
-                            // Calculate Lock State for Start Button
                             let isStartLocked = false;
                             let startUnlockTime = null;
                             if (task.status === 'scheduled') {
                                 const [startH, startM] = task.scheduled_start_time.split(':').map(Number);
                                 const startDate = new Date();
                                 startDate.setHours(startH, startM, 0, 0);
-                                startUnlockTime = new Date(startDate.getTime() - 5 * 60000); // 5 mins before
-
-                                if (currentTime < startUnlockTime) {
-                                    isStartLocked = true;
-                                }
+                                startUnlockTime = new Date(startDate.getTime() - 5 * 60000);
+                                if (currentTime < startUnlockTime) isStartLocked = true;
                             }
 
-                            // Calculate Lock State for End Button
                             let isLocked = true;
                             let unlockTime = null;
-
                             if (task.status === 'in_progress') {
                                 const [endH, endM] = task.scheduled_end_time.split(':').map(Number);
                                 const [startH, startM] = task.scheduled_start_time.split(':').map(Number);
-
-                                const now = currentTime; // Use dynamic state
+                                const now = currentTime;
                                 const endDate = new Date();
                                 endDate.setHours(endH, endM, 0, 0);
-
                                 const startDate = new Date();
                                 startDate.setHours(startH, startM, 0, 0);
-
-                                // Handle Next Day Wrap
-                                if (endDate < startDate) {
-                                    endDate.setDate(endDate.getDate() + 1);
-                                }
-
-                                // Unlock 5 mins before
+                                if (endDate < startDate) endDate.setDate(endDate.getDate() + 1);
                                 unlockTime = new Date(endDate.getTime() - 5 * 60000);
-
-                                if (now >= unlockTime) {
-                                    isLocked = false;
-                                }
+                                if (now >= unlockTime) isLocked = false;
                             }
 
                             return (
@@ -679,10 +745,103 @@ export default function Dashboard() {
                             );
                         })}
 
+                        {/* Render Collapsible List for History tab */}
+                        {activeTab === 'history' && (
+                            <div className="space-y-2">
+                                {filteredTasks.map((task) => {
+                                    const isExpanded = expandedHistoryId === task.id;
+                                    const taskDate = new Date(task.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                                    return (
+                                        <div key={task.id} className="bg-white dark:bg-charcoal rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden transition-all duration-200">
+                                            {/* Compact Row */}
+                                            <button
+                                                onClick={() => setExpandedHistoryId(isExpanded ? null : task.id)}
+                                                className="w-full flex items-center justify-between p-4 text-left"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                    <div className={clsx(
+                                                        "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+                                                        task.status === 'completed' ? "bg-emerald-50 dark:bg-emerald-500/10" :
+                                                            task.status === 'missed' ? "bg-rose-50 dark:bg-rose-500/10" :
+                                                                "bg-slate-50 dark:bg-slate-800"
+                                                    )}>
+                                                        <span className={clsx(
+                                                            "material-symbols-outlined text-lg",
+                                                            task.status === 'completed' ? "text-emerald-500" :
+                                                                task.status === 'missed' ? "text-rose-500" :
+                                                                    "text-slate-400"
+                                                        )}>
+                                                            {task.status === 'completed' ? 'check_circle' : task.status === 'missed' ? 'cancel' : 'schedule'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <h4 className="text-sm font-bold truncate text-charcoal dark:text-white">{task.title}</h4>
+                                                        <p className="text-[10px] font-medium text-slate-400">{taskDate}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                    <span className={clsx(
+                                                        "text-xs font-bold",
+                                                        task.status === 'completed' ? "text-emerald-500" :
+                                                            task.status === 'missed' ? "text-rose-500" :
+                                                                "text-slate-400"
+                                                    )}>
+                                                        {task.status === 'missed' ? `-${task.points}` : `+${task.points}`} pts
+                                                    </span>
+                                                    <span className={clsx(
+                                                        "material-symbols-outlined text-slate-400 text-sm transition-transform duration-200",
+                                                        isExpanded && "rotate-180"
+                                                    )}>expand_more</span>
+                                                </div>
+                                            </button>
+
+                                            {/* Expanded Details */}
+                                            {isExpanded && (
+                                                <div className="px-4 pb-4 pt-0 border-t border-slate-50 dark:border-white/5 space-y-3 animate-in slide-in-from-top-1 duration-200">
+                                                    {task.description && (
+                                                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{task.description}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-4 text-xs">
+                                                        <div className="flex items-center gap-1.5 text-slate-400">
+                                                            <span className="material-symbols-outlined text-sm">schedule</span>
+                                                            <span className="font-medium">{task.scheduled_start_time} - {task.scheduled_end_time}</span>
+                                                        </div>
+                                                        <span className={clsx(
+                                                            "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase",
+                                                            task.priority === 'high' ? "text-rose-500 bg-rose-500/10" :
+                                                                task.priority === 'medium' ? "text-amber-500 bg-amber-500/10" :
+                                                                    "text-sky-500 bg-sky-500/10"
+                                                        )}>
+                                                            {task.priority || 'normal'}
+                                                        </span>
+                                                        <span className={clsx(
+                                                            "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase",
+                                                            task.status === 'completed' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" :
+                                                                task.status === 'missed' ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400" :
+                                                                    "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                                                        )}>
+                                                            {task.status.replace('_', '-')}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => navigate(`/audit/${task.id}`)}
+                                                        className="text-xs font-bold text-primary flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                                    >
+                                                        <span className="material-symbols-outlined text-sm">open_in_new</span>
+                                                        View Full Audit
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
                         {filteredTasks.length === 0 && (
                             <div className="text-center py-12 text-slate-400">
                                 <span className="material-symbols-outlined text-4xl mb-2 block opacity-50">checklist</span>
-                                <p className="text-sm font-medium">No tasks found</p>
+                                <p className="text-sm font-medium">{activeTab === 'history' ? 'No history matching filters' : 'No tasks found'}</p>
                             </div>
                         )}
                     </main>

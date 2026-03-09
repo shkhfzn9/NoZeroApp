@@ -334,7 +334,7 @@ export function TaskProvider({ children }) {
                         .single();
 
                     if (!error && data) {
-                        return { id: task.id, status: 'missed' };
+                        return { id: task.id, status: 'missed', points: task.points || 0 };
                     }
                 }
                 return null;
@@ -354,9 +354,11 @@ export function TaskProvider({ children }) {
 
                         if (currentProfile) {
                             const newCount = (currentProfile.missed_tasks_count || 0) + changes.length;
-                            const todayStr = new Date().toLocaleDateString('en-CA');
+                            // Deduct points for each missed task (same amount they would have gained)
+                            const totalDeducted = changes.reduce((sum, c) => sum + (c.points || 0), 0);
+                            const newScore = (currentProfile.consistency_score || 0) - totalDeducted;
 
-                            let updates = { missed_tasks_count: newCount };
+                            let updates = { missed_tasks_count: newCount, consistency_score: newScore };
                             const { error: profileError } = await supabase
                                 .from('profiles')
                                 .update(updates)
@@ -483,15 +485,15 @@ export function TaskProvider({ children }) {
             if (!error) {
                 setTasks((prev) => prev.map(t => t.id === taskId ? data : t));
 
-                // Increment missed_tasks_count and potentially apply penalty
+                // Increment missed_tasks_count and deduct points for missed task
                 if (user) {
                     const { data: currentProfile } = await supabase.from('profiles').select('consistency_score, last_penalty_date, missed_tasks_count, current_streak').eq('id', user.id).single();
 
                     if (currentProfile) {
                         const newCount = (currentProfile.missed_tasks_count || 0) + 1;
-                        const todayStr = new Date().toLocaleDateString('en-CA');
+                        const newScore = (currentProfile.consistency_score || 0) - (task.points || 0);
 
-                        let updates = { missed_tasks_count: newCount };
+                        let updates = { missed_tasks_count: newCount, consistency_score: newScore };
 
                         const { error: profileError } = await supabase
                             .from('profiles')
@@ -656,15 +658,18 @@ export function TaskProvider({ children }) {
                     last_penalty_date: todayStr
                 };
 
-                if (yesterdayPoints < 5) {
-                    console.log(`[TaskContext] Missed safe zone yesterday (Points: ${yesterdayPoints}). Applying -10 penalty.`);
-                    // User requested +points earned, then -10 penalty if < 5
-                    newScore = newScore + yesterdayPoints - 10;
+                if (yesterdayPoints === 0) {
+                    // Missed the day completely: 0 tasks/points tracked.
+                    console.log(`[TaskContext] Missed yesterday completely. Applying -10 penalty and resetting streak.`);
+                    newScore = Math.max(0, newScore - 10);
+                    updates.current_streak = 0;
+                } else if (yesterdayPoints < 10) {
+                    // Failed the 10-point streak target, but earned some points.
+                    console.log(`[TaskContext] Earned ${yesterdayPoints} yesterday (Failed 10pt target). Resetting streak, no penalty.`);
                     updates.current_streak = 0;
                 } else {
-                    console.log(`[TaskContext] Safe zone achieved! Earned ${yesterdayPoints} points yesterday.`);
-                    // User requested +points earned if >= 5
-                    newScore = newScore + yesterdayPoints;
+                    // Hit the target yesterday (this would usually be caught by completeTask on the day, but just in case)
+                    console.log(`[TaskContext] Safe zone achieved yesterday (${yesterdayPoints} pts).`);
                 }
 
                 updates.consistency_score = newScore;
